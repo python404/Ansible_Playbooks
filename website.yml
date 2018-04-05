@@ -1,0 +1,66 @@
+---
+- hosts: webservers
+  become: yes
+  become_method: sudo
+  connection: ssh
+  tasks: 
+    - name: install packages 
+      package: 
+        pkg: "{{ item }}"
+        state: latest
+      with_items:
+       - httpd
+       - wget
+       - ftp
+       - firewalld
+       - kernel-devel
+
+    - name: start firewalld
+      systemd:
+        name: firewalld
+        state: started
+
+    - name: enable service httpd and start the systemd
+      systemd:
+        name: httpd
+        enabled: yes
+        state: started 
+
+
+    - name: Copy template to remote system
+      template:
+       src: /tmp/host1/index.html
+       dest: /var/www/html/index.html
+       owner: apache
+       group: apache
+       mode: 0755 
+   
+    - name: Creates folder
+      file:
+        path: /var/www/html2
+        state: directory
+        
+    - name: Copy template2 to remote system
+      template:
+       src: /tmp/host2/index.html
+       dest: /var/www/html2/index.html
+       owner: apache
+       group: apache
+       mode: 0755
+
+    - name: Copy script to remote system
+      template:
+       src: /home/ansible-user/script.sh
+       dest: /home/ansible-user/script.sh
+       owner: ansible-user
+       group: ansible-user
+
+    - name: run script
+      command: sh /home/ansible-user/script.sh
+      register: mymotd
+
+    - name: reload firewall centos 7
+      command: "firewall-cmd --reload"
+
+    - name: restart httpd
+      command: "systemctl reload httpd"
