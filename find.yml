@@ -1,0 +1,8 @@
+---
+- hosts: localhost
+  tasks:
+    - name: Find something
+      find:
+        file_type: file
+        name: passwd
+        paths: /
