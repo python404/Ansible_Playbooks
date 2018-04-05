@@ -1,0 +1,64 @@
+---
+- hosts: "{{ hostname }}"
+  vars_prompt:
+    name: hostname
+    prompt: "Please enter the hostname: "
+    private: no 
+
+  become: yes
+  become_method: sudo
+  connection: ssh
+  tasks:
+    - name: kernel update
+      yum:
+        name: kernel
+        state: latest
+    - name: install kernel packages
+      package:
+        pkg: "{{ item }}"
+        state: latest
+      with_items:
+        - kernel-headers
+        - kernel-devel
+
+    - name: reboot nodes
+      shell: sleep 2 && shutdown -r now "Ansnible reboot"
+      async: 1
+      poll: 0
+      ignore_errors: true
+
+    - local_action: wait_for host={{ ansible_default_ipv4.address }} port=22 delay=10 state=started
+
+    - name: copy repository to agents
+      template:
+        src: /etc/yum.repos.d/r2soft.repo
+        dest: /etc/yum.repos.d/
+        owner: root
+        group: root
+        mode: 0644
+
+    - name: installation of agent
+      yum:
+        name: serverbackup-enterprise-agent
+        state: latest
+
+    - name:  open firewall rule
+      command: firewall-cmd --zone=public --add-port=1167/tcp --permanent
+
+    - name: restart firewalld
+      service:
+        name: firewalld
+        state: restarted
+
+    - name: get module
+      command: r1soft-setup --get-module
+
+    - name: Start cdp-agent
+      tags:
+        - StartCDP
+      systemd:
+        name: cdp-agent
+        state: restarted
+
+    - name: Get backup server key
+      command: r1soft-setup --get-key http://165.227.118.95:8080
